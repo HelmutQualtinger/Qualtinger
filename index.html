@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Qualtinger Puzzle</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5c518;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:'Segoe UI',sans-serif;color:#1a1a2e;gap:14px;padding:16px}
+h1{font-size:1.1rem;letter-spacing:2px;text-transform:uppercase;font-weight:900}
+#sub{font-size:.8rem;color:#555;letter-spacing:1px}
+#moves{font-weight:bold}
+#board{position:relative;width:400px;height:400px;background:#cc0000;border:4px solid #1a1a2e;border-radius:6px;overflow:hidden;box-shadow:6px 6px 0 #b8950f}
+.tile{position:absolute;width:25%;height:25%;cursor:pointer;border:2px solid rgba(0,0,0,.4);transition:top .12s ease,left .12s ease;background-repeat:no-repeat}
+.tile:hover{filter:brightness(1.15)}
+#preview{display:none;position:absolute;inset:0;z-index:5;background-repeat:no-repeat}
+#controls{display:flex;gap:12px}
+button{padding:8px 22px;border:3px solid #1a1a2e;border-radius:4px;font-weight:bold;cursor:pointer;letter-spacing:1px;font-size:.85rem}
+#btnShuffle{background:#1a1a2e;color:#f5c518}
+#btnShuffle:hover{background:#2d2d50}
+#btnPreview{background:#fff;color:#1a1a2e}
+#btnPreview:hover{background:#eee}
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:30}
+#overlay.show{display:flex}
+#overlay h2{font-size:2.2rem;color:#f5c518}
+#overlay p{color:#eee}
+#overlay button{background:#f5c518;color:#1a1a2e;border:none;padding:10px 28px;font-size:1rem}
+#loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#1a1a2e;color:#f5c518;z-index:20;font-size:.9rem;letter-spacing:1px}
+#loader label{padding:9px 22px;background:#f5c518;color:#1a1a2e;font-weight:bold;border-radius:4px;cursor:pointer;font-size:.85rem}
+#yt-btn{padding:8px 18px;border:3px solid #cc0000;border-radius:4px;background:#cc0000;color:#fff;font-weight:bold;cursor:pointer;font-size:.85rem;letter-spacing:1px;text-decoration:none;display:inline-block}
+#yt-btn:hover{background:#aa0000;border-color:#aa0000}
+</style>
+</head>
+<body>
+<h1>Helmut Qualtinger Puzzle</h1>
+<div id="sub">4×4 · 15 Pieces · Multi-Slide</div>
+<div id="moves">Moves: <span id="mc">0</span></div>
+<div id="board">
+  <div id="loader">
+    <span id="loaderMsg">Lade Bild…</span>
+    <label id="uploadLabel" style="display:none">📁 Bild wählen<input type="file" accept="image/*" style="display:none" onchange="loadFile(this)"></label>
+  </div>
+  <div id="preview"></div>
+</div>
+<div id="controls">
+  <button id="btnShuffle" onclick="shuffle()" disabled>Shuffle</button>
+  <button id="btnPreview" onmousedown="showPrev(1)" onmouseup="showPrev(0)" ontouchstart="showPrev(1)" ontouchend="showPrev(0)" disabled>👁 Preview</button>
+  <a id="yt-btn" href="https://www.youtube.com/watch?v=3vwaJ_L0RF0" target="_blank" rel="noopener">🎵 Krüppellied ↗</a>
+</div>
+<div id="overlay">
+  <h2>🎉 Gelöst!</h2>
+  <p id="winMsg"></p>
+  <button onclick="closeWin()">Neu mischen</button>
+</div>
+
+<script>
+const N=4,TOTAL=N*N,BP=400,TP=BP/N;
+let tiles=[],moves=0,imgSrc=null,cs=null;
+
+// Try to load from window.fs automatically
+(async()=>{
+  const names=[
+    'qualtingerportraet.5005575.jpg',
+    'qualtinger.jpg','Qualtinger.jpg',
+    'image.jpg','image.jpeg','photo.jpg',
+    'upload.jpg','img.jpg','portrait.jpg'
+  ];
+  for(const n of names){
+    try{
+      const d=await window.fs.readFile(n);
+      const url=URL.createObjectURL(new Blob([d],{type:'image/jpeg'}));
+      await initImg(url);
+      return;
+    }catch(e){}
+  }
+  // show upload button as fallback
+  document.getElementById('loaderMsg').textContent='Bitte Bild hochladen:';
+  document.getElementById('uploadLabel').style.display='block';
+})();
+
+function loadFile(inp){
+  const f=inp.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>initImg(e.target.result);
+  r.readAsDataURL(f);
+}
+
+function initImg(src){
+  return new Promise(res=>{
+    const image=new Image();
+    image.onload=()=>{
+      const iw=image.naturalWidth,ih=image.naturalHeight;
+      const crop=Math.min(iw,ih);
+      const ox=(iw-crop)/2,oy=(ih-crop)/2;
+      const scale=BP/crop;
+      const bsW=iw*scale,bsH=ih*scale;
+      const bgX=-ox*scale,bgY=-oy*scale;
+      cs={bsW,bsH,bgX,bgY};
+      imgSrc=src;
+      // set preview
+      const pv=document.getElementById('preview');
+      pv.style.backgroundImage=`url(${src})`;
+      pv.style.backgroundSize=`${bsW}px ${bsH}px`;
+      pv.style.backgroundPosition=`${bgX}px ${bgY}px`;
+      document.getElementById('loader').style.display='none';
+      document.getElementById('btnShuffle').disabled=false;
+      document.getElementById('btnPreview').disabled=false;
+      createTiles();
+      shuffle();
+      res();
+    };
+    image.src=src;
+  });
+}
+
+function tileBg(t){
+  const tc=t%N,tr=Math.floor(t/N);
+  return `${cs.bgX-tc*TP}px ${cs.bgY-tr*TP}px`;
+}
+
+function createTiles(){
+  document.querySelectorAll('.tile').forEach(e=>e.remove());
+  const board=document.getElementById('board');
+  for(let t=0;t<TOTAL-1;t++){
+    const el=document.createElement('div');
+    el.className='tile';
+    el.style.backgroundImage=`url(${imgSrc})`;
+    el.style.backgroundSize=`${cs.bsW}px ${cs.bsH}px`;
+    el.style.backgroundPosition=tileBg(t);
+    el.dataset.t=t;
+    el.onclick=()=>clickTile(t);
+    board.appendChild(el);
+  }
+}
+
+function render(){
+  document.querySelectorAll('.tile').forEach(el=>{
+    const t=+el.dataset.t,pos=tiles.indexOf(t);
+    el.style.left=(pos%N)*25+'%';
+    el.style.top=Math.floor(pos/N)*25+'%';
+  });
+  document.getElementById('mc').textContent=moves;
+}
+
+function blank(){return tiles.indexOf(15);}
+
+function clickTile(t){
+  if(!imgSrc)return;
+  const tP=tiles.indexOf(t),bP=blank();
+  const tr=Math.floor(tP/N),tc=tP%N,br=Math.floor(bP/N),bc=bP%N;
+  let next=[...tiles];
+  if(tr===br&&tc!==bc){
+    const dir=tc<bc?1:-1;let c=bP;
+    while(c!==tP){next[c]=next[c-dir];c-=dir;}
+    next[tP]=15;
+  }else if(tc===bc&&tr!==br){
+    const dir=tr<br?N:-N;let c=bP;
+    while(c!==tP){next[c]=next[c-dir];c-=dir;}
+    next[tP]=15;
+  }else return;
+  tiles=next;moves++;
+  render();
+  if(tiles.every((v,i)=>v===i))setTimeout(showWin,250);
+}
+
+function isSolvable(arr){
+  let inv=0;
+  for(let i=0;i<TOTAL-1;i++)for(let j=i+1;j<TOTAL;j++)
+    if(arr[i]!==15&&arr[j]!==15&&arr[i]>arr[j])inv++;
+  const bf=N-Math.floor(arr.indexOf(15)/N);
+  return N%2===1?inv%2===0:bf%2===0?inv%2===1:inv%2===0;
+}
+
+function shuffle(){
+  moves=0;
+  do{
+    tiles=Array.from({length:TOTAL},(_,i)=>i);
+    for(let i=TOTAL-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[tiles[i],tiles[j]]=[tiles[j],tiles[i]];}
+  }while(!isSolvable(tiles)||tiles.every((v,i)=>v===i));
+  document.getElementById('overlay').classList.remove('show');
+  render();
+}
+
+
+function showPrev(on){document.getElementById('preview').style.display=on?'block':'none';}
+function showWin(){document.getElementById('winMsg').textContent=`Gelöst in ${moves} Zügen!`;document.getElementById('overlay').classList.add('show');}
+function closeWin(){document.getElementById('overlay').classList.remove('show');shuffle();}
+</script>
+</body>
+</html>
