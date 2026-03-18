@@ -37,7 +37,6 @@ button{padding:8px 22px;border:3px solid #1a1a2e;border-radius:4px;font-weight:b
 <div id="board">
   <div id="loader">
     <span id="loaderMsg">Lade Bild…</span>
-    <label id="uploadLabel" style="display:none">📁 Bild wählen<input type="file" accept="image/*" style="display:none" onchange="loadFile(this)"></label>
   </div>
   <div id="preview"></div>
 </div>
@@ -56,33 +55,11 @@ button{padding:8px 22px;border:3px solid #1a1a2e;border-radius:4px;font-weight:b
 const N=4,TOTAL=N*N,BP=400,TP=BP/N;
 let tiles=[],moves=0,imgSrc=null,cs=null;
 
-// Try to load from window.fs automatically
-(async()=>{
-  const names=[
-    'qualtingerportraet.5005575.jpg',
-    'qualtinger.jpg','Qualtinger.jpg',
-    'image.jpg','image.jpeg','photo.jpg',
-    'upload.jpg','img.jpg','portrait.jpg'
-  ];
-  for(const n of names){
-    try{
-      const d=await window.fs.readFile(n);
-      const url=URL.createObjectURL(new Blob([d],{type:'image/jpeg'}));
-      await initImg(url);
-      return;
-    }catch(e){}
-  }
-  // show upload button as fallback
-  document.getElementById('loaderMsg').textContent='Bitte Bild hochladen:';
-  document.getElementById('uploadLabel').style.display='block';
-})();
+const audio=new Audio('Krüppellied.mp3');
+audio.loop=true;
+document.addEventListener('click',()=>audio.play().catch(()=>{}),{once:true});
 
-function loadFile(inp){
-  const f=inp.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=e=>initImg(e.target.result);
-  r.readAsDataURL(f);
-}
+initImg('qualtingerportraet.5005575.jpg');
 
 function initImg(src){
   return new Promise(res=>{
