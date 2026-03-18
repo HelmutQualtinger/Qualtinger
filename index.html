@@ -25,7 +25,8 @@ button{padding:8px 22px;border:3px solid #1a1a2e;border-radius:4px;font-weight:b
 #overlay p{color:#eee}
 #overlay button{background:#f5c518;color:#1a1a2e;border:none;padding:10px 28px;font-size:1rem}
 #loader{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#1a1a2e;color:#f5c518;z-index:20;font-size:.9rem;letter-spacing:1px}
-#loader label{padding:9px 22px;background:#f5c518;color:#1a1a2e;font-weight:bold;border-radius:4px;cursor:pointer;font-size:.85rem}</style>
+#loader label{padding:9px 22px;background:#f5c518;color:#1a1a2e;font-weight:bold;border-radius:4px;cursor:pointer;font-size:.85rem}
+#thumb{position:fixed;top:12px;right:12px;width:100px;height:100px;background-repeat:no-repeat;border:3px solid #1a1a2e;border-radius:4px;box-shadow:3px 3px 0 #b8950f;display:none}</style>
 </head>
 <body>
 <h1>Helmut Qualtinger Puzzle</h1>
@@ -41,6 +42,7 @@ button{padding:8px 22px;border:3px solid #1a1a2e;border-radius:4px;font-weight:b
   <button id="btnShuffle" onclick="shuffle()" disabled>Shuffle</button>
   <button id="btnPreview" onmousedown="showPrev(1)" onmouseup="showPrev(0)" ontouchstart="showPrev(1)" ontouchend="showPrev(0)" disabled>👁 Preview</button>
 </div>
+<div id="thumb"></div>
 <div id="overlay">
   <h2>🎉 Gelöst!</h2>
   <p id="winMsg"></p>
@@ -75,6 +77,12 @@ function initImg(src){
       pv.style.backgroundSize=`${bsW}px ${bsH}px`;
       pv.style.backgroundPosition=`${bgX}px ${bgY}px`;
       document.getElementById('loader').style.display='none';
+      const th=document.getElementById('thumb');
+      const ts=100/crop*Math.min(iw,ih);
+      th.style.backgroundImage=`url(${src})`;
+      th.style.backgroundSize=`${iw*(100/crop)}px ${ih*(100/crop)}px`;
+      th.style.backgroundPosition=`${-ox*(100/crop)}px ${-oy*(100/crop)}px`;
+      th.style.display='block';
       document.getElementById('btnShuffle').disabled=false;
       document.getElementById('btnPreview').disabled=false;
       createTiles();
